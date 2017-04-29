@@ -102,8 +102,8 @@ public class MainActivity extends Activity implements CameraBridgeViewBase.CvCam
         javaCameraView.setCvCameraViewListener(this);
 
         //create feature detector, descriptor extractor, and descriptor matcher
-        surf = FeatureDetector.create(FeatureDetector.SURF);
-        freak = DescriptorExtractor.create(DescriptorExtractor.FREAK); // FREAK won't work for whatever reason
+        surf = FeatureDetector.create(FeatureDetector.BRISK);
+        freak = DescriptorExtractor.create(DescriptorExtractor.SURF); // FREAK won't work for whatever reason
         flann = DescriptorMatcher.create(DescriptorMatcher.FLANNBASED);
     }
 
@@ -162,7 +162,7 @@ public class MainActivity extends Activity implements CameraBridgeViewBase.CvCam
         scene = new MatOfPoint2f();
 
         //trying to obtain the tag image from Drawable
-        Bitmap tag_dummy = BitmapFactory.decodeResource(getResources(), R.mipmap.bar_code);
+        Bitmap tag_dummy = BitmapFactory.decodeResource(getResources(), R.mipmap.circ_bar);
         Utils.bitmapToMat(tag_dummy, tag);
         Imgproc.cvtColor(tag, tagGray, Imgproc.COLOR_RGB2BGR);
         //extract descriptors from tag
@@ -225,8 +225,8 @@ public class MainActivity extends Activity implements CameraBridgeViewBase.CvCam
 
         for( int i = 0; i < matched.size(); i++ )
         {
-            double good_dist = (max_dist - min_dist)/3;
-            if( matched.get(i).distance < min_dist+good_dist ) {
+            double good_dist = 3 * min_dist;
+            if( matched.get(i).distance < good_dist ) {
                 good_match.add( matched.get(i));
             }
         }
