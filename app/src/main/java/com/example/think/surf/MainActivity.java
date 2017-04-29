@@ -56,6 +56,7 @@ public class MainActivity extends Activity implements CameraBridgeViewBase.CvCam
     MatOfKeyPoint scene_points, tag_points, final_keypoints;
     double max_dist = 0;
     double min_dist = 100000;
+    int frame_count = 0;
 
     // Used to load the 'native-lib' library on application startup.
 
@@ -190,82 +191,83 @@ public class MainActivity extends Activity implements CameraBridgeViewBase.CvCam
 
     @Override
     public Mat onCameraFrame(CameraBridgeViewBase.CvCameraViewFrame inputFrame) {
-        good_match = new ArrayList<>();
-        objpt_list = new ArrayList<>();
-        scene_list = new ArrayList<>();
-        scenept_list = new ArrayList<>();
-        obj_corner = new ArrayList<>();
-        final_list = new ArrayList<>();
-
-        //get descriptors from current frame
         mRgba = inputFrame.rgba();
-        Imgproc.cvtColor(mRgba, imgGray, Imgproc.COLOR_RGB2BGR);
-        surf.detect(imgGray, scene_points);
-        scene_list = scene_points.toList();
-        freak.compute(imgGray, scene_points, scene_descriptors);
+        if (frame_count % 30 == 0) {
+            good_match = new ArrayList<>();
+            objpt_list = new ArrayList<>();
+            scene_list = new ArrayList<>();
+            scenept_list = new ArrayList<>();
+            obj_corner = new ArrayList<>();
+            final_list = new ArrayList<>();
 
-        //converting descriptors to the correct type
-        if(tag_descriptors.type()!=CvType.CV_32F) {
-            tag_descriptors.convertTo(tag_descriptors, CvType.CV_32F);
-        }
-        if(scene_descriptors.type()!=CvType.CV_32F) {
-            scene_descriptors.convertTo(scene_descriptors, CvType.CV_32F);
-        }
+            //get descriptors from current frame
+            Imgproc.cvtColor(mRgba, imgGray, Imgproc.COLOR_RGB2BGR);
+            surf.detect(imgGray, scene_points);
+            scene_list = scene_points.toList();
+            freak.compute(imgGray, scene_points, scene_descriptors);
 
-        //match the points
-        flann.match(scene_descriptors, tag_descriptors, matches);
-        matched = matches.toList();
-
-
-        for( int i = 0; i < matched.size(); i++ ) {
-            double dist = matched.get(i).distance;
-            if( dist < min_dist ) min_dist = dist;
-            if( dist > max_dist ) max_dist = dist;
-        }
-
-        for( int i = 0; i < matched.size(); i++ )
-        {
-            double good_dist = 3 * min_dist;
-            if( matched.get(i).distance < good_dist ) {
-                good_match.add( matched.get(i));
+            //converting descriptors to the correct type
+            if (tag_descriptors.type() != CvType.CV_32F) {
+                tag_descriptors.convertTo(tag_descriptors, CvType.CV_32F);
             }
-        }
+            if (scene_descriptors.type() != CvType.CV_32F) {
+                scene_descriptors.convertTo(scene_descriptors, CvType.CV_32F);
+            }
 
-        for( int i = 0; i < good_match.size(); i++ ) {
-            KeyPoint from_tag = tag_list.get(good_match.get(i).trainIdx);
-            KeyPoint from_scene = scene_list.get(good_match.get(i).queryIdx);
-            objpt_list.add( from_tag.pt);
-            scenept_list.add( from_scene.pt);
-            final_list.add(from_scene);
-        }
-
-        good_match.clear();
-
-        obj.fromList(objpt_list);
-        scene.fromList(scenept_list);
+            //match the points
+            flann.match(scene_descriptors, tag_descriptors, matches);
+            matched = matches.toList();
 
 
-        objpt_list.clear();
-        scenept_list.clear();
+            for (int i = 0; i < matched.size(); i++) {
+                double dist = matched.get(i).distance;
+                if (dist < min_dist) min_dist = dist;
+                if (dist > max_dist) max_dist = dist;
+            }
 
-        obj_corner.add(0, new Point(0,0));
-        obj_corner.add(1, new Point(tag.cols(), 0));
-        obj_corner.add(2, new Point(tag.cols(), tag.rows()));
-        obj_corner.add(3, new Point(0, tag.rows()));
-        train_tag_corner = Converters.vector_Point2f_to_Mat(obj_corner);
+            for (int i = 0; i < matched.size(); i++) {
+                double good_dist = 3 * min_dist;
+                if (matched.get(i).distance < good_dist) {
+                    good_match.add(matched.get(i));
+                }
+            }
 
-        //if need to specify RANSAC need to come up with a threshold
-        if (final_list.size()!=0) {
-            final_keypoints.fromList(final_list);
-            Features2d.drawKeypoints(imgGray, final_keypoints, imgSurf, new Scalar(0,255,255),0);
-            return imgSurf;
+            for (int i = 0; i < good_match.size(); i++) {
+                KeyPoint from_tag = tag_list.get(good_match.get(i).trainIdx);
+                KeyPoint from_scene = scene_list.get(good_match.get(i).queryIdx);
+                objpt_list.add(from_tag.pt);
+                scenept_list.add(from_scene.pt);
+                final_list.add(from_scene);
+            }
+
+            good_match.clear();
+
+            obj.fromList(objpt_list);
+            scene.fromList(scenept_list);
+
+
+            objpt_list.clear();
+            scenept_list.clear();
+
+            obj_corner.add(0, new Point(0, 0));
+            obj_corner.add(1, new Point(tag.cols(), 0));
+            obj_corner.add(2, new Point(tag.cols(), tag.rows()));
+            obj_corner.add(3, new Point(0, tag.rows()));
+            train_tag_corner = Converters.vector_Point2f_to_Mat(obj_corner);
+
+            //if need to specify RANSAC need to come up with a threshold
+            if (final_list.size() != 0) {
+                final_keypoints.fromList(final_list);
+                Features2d.drawKeypoints(imgGray, final_keypoints, imgSurf, new Scalar(0, 255, 255), 0);
+                return imgSurf;
 //            H = findHomography(obj, scene);
+            }
+
+            Features2d.drawKeypoints(imgGray, scene_points, imgSurf, new Scalar(255, 255, 255), 0);
+
+            obj_corner.clear();
         }
-
-        Features2d.drawKeypoints(imgGray, scene_points, imgSurf, new Scalar(255, 255, 255),0);
-
-        obj_corner.clear();
-
+        frame_count ++;
         return imgSurf;
     }
 }
