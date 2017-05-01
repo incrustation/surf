@@ -1,2 +1,2 @@
 <?xml version="1.0" encoding="utf-8"?>
-<merger version="3"><dataSet config="main"><source path="/Users/Think/AndroidStudioProjects/SURF/openCVLibrary320dev/src/main/shaders"/></dataSet><dataSet config="debug"><source path="/Users/Think/AndroidStudioProjects/SURF/openCVLibrary320dev/src/debug/shaders"/></dataSet></merger>
+<merger version="3"><dataSet config="main"><source path="/Users/nikhil/Desktop/Stuff/Development/surf/openCVLibrary320dev/src/main/shaders"/></dataSet><dataSet config="debug"><source path="/Users/nikhil/Desktop/Stuff/Development/surf/openCVLibrary320dev/src/debug/shaders"/></dataSet></merger>

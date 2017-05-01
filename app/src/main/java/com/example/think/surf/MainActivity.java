@@ -24,8 +24,10 @@ import org.opencv.core.KeyPoint;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfDMatch;
 import org.opencv.core.MatOfKeyPoint;
+import org.opencv.core.MatOfPoint;
 import org.opencv.core.MatOfPoint2f;
 import org.opencv.core.Point;
+import org.opencv.core.Rect;
 import org.opencv.core.Scalar;
 import org.opencv.features2d.DescriptorExtractor;
 import org.opencv.features2d.DescriptorMatcher;
@@ -34,15 +36,20 @@ import org.opencv.features2d.Features2d;
 import org.opencv.imgproc.Imgproc;
 import org.opencv.utils.Converters;
 
+import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.List;
+
+import static org.opencv.imgproc.Imgproc.boundingRect;
+import static org.opencv.imgproc.Imgproc.floodFill;
+import static org.opencv.imgproc.Imgproc.rectangle;
 
 public class MainActivity extends Activity implements CameraBridgeViewBase.CvCameraViewListener2 {
 
     private static String TAG = "MainActivity";
     JavaCameraView javaCameraView;
 
-    Mat mRgba, imgSurf, imgGray, tag, tagGray, H, train_tag_corner;
+    Mat mRgba, imgSurf, imgGray, imgMask, tag, tagGray, H, train_tag_corner;
     Mat scene_descriptors, tag_descriptors;
     FeatureDetector surf;
     DescriptorExtractor freak;
@@ -54,6 +61,8 @@ public class MainActivity extends Activity implements CameraBridgeViewBase.CvCam
     MatOfPoint2f obj, scene;
 
     MatOfKeyPoint scene_points, tag_points, final_keypoints;
+    MatOfPoint final_points;
+    Point[] final_points_list;
     double max_dist = 0;
     double min_dist = 100000;
     int frame_count = 0;
@@ -143,6 +152,7 @@ public class MainActivity extends Activity implements CameraBridgeViewBase.CvCam
         mRgba = new Mat(height, width, CvType.CV_8UC4);
         imgSurf = new Mat(height, width, CvType.CV_8UC4);
         imgGray = new Mat(height, width, CvType.CV_8UC4);
+        imgMask = new Mat(height+2, width+2, CvType.CV_8U, Scalar.all(1));
         tag = new Mat(height, width, CvType.CV_8UC4);
         tagGray = new Mat(height, width, CvType.CV_8UC4);
 
@@ -150,6 +160,7 @@ public class MainActivity extends Activity implements CameraBridgeViewBase.CvCam
         tag_points = new MatOfKeyPoint();
         //these are keypoints on the scene image that are deemed good matches
         final_keypoints = new MatOfKeyPoint();
+        final_points = new MatOfPoint();
 
         scene_descriptors = new Mat(height, width, CvType.CV_8UC4);
         tag_descriptors = new Mat(height, width, CvType.CV_8UC4);
@@ -192,6 +203,7 @@ public class MainActivity extends Activity implements CameraBridgeViewBase.CvCam
     @Override
     public Mat onCameraFrame(CameraBridgeViewBase.CvCameraViewFrame inputFrame) {
         mRgba = inputFrame.rgba();
+        frame_count ++;
         if (frame_count % 30 == 0) {
             good_match = new ArrayList<>();
             objpt_list = new ArrayList<>();
@@ -245,7 +257,6 @@ public class MainActivity extends Activity implements CameraBridgeViewBase.CvCam
             obj.fromList(objpt_list);
             scene.fromList(scenept_list);
 
-
             objpt_list.clear();
             scenept_list.clear();
 
@@ -255,19 +266,31 @@ public class MainActivity extends Activity implements CameraBridgeViewBase.CvCam
             obj_corner.add(3, new Point(0, tag.rows()));
             train_tag_corner = Converters.vector_Point2f_to_Mat(obj_corner);
 
+            Features2d.drawKeypoints(imgGray, scene_points, imgSurf, new Scalar(255,255,255), 0);
             //if need to specify RANSAC need to come up with a threshold
-            if (final_list.size() != 0) {
+            if (final_list.size() != 0 && final_list.size() < 50) { // change the magic number here based on tests
                 final_keypoints.fromList(final_list);
-                Features2d.drawKeypoints(imgGray, final_keypoints, imgSurf, new Scalar(0, 255, 255), 0);
-                return imgSurf;
-//            H = findHomography(obj, scene);
-            }
+                Features2d.drawKeypoints(imgGray, final_keypoints, imgSurf, new Scalar(255, 0, 255), 0);
 
-            Features2d.drawKeypoints(imgGray, scene_points, imgSurf, new Scalar(255, 255, 255), 0);
+                Point[] final_points_list = new Point[final_list.size()];
+                for (int i = 0; i < final_list.size(); i++) {
+                    Point curr_pt = final_list.get(i).pt;
+                    final_points_list[i] = curr_pt;
+                    Log.d("points", curr_pt.toString());
+                    floodFill(imgSurf, imgMask, curr_pt, new Scalar(0,0,0));
+                }
+                Log.d("complete", "POINTS ARE OVER");
+                Log.d("total count", String.valueOf(final_list.size()));
+
+                final_points.fromArray(final_points_list);
+                Rect bounding_rect = boundingRect(final_points);
+                rectangle(imgSurf, bounding_rect.tl(), bounding_rect.br(), new Scalar(255,255,255));
+
+                return imgSurf;
+            }
 
             obj_corner.clear();
         }
-        frame_count ++;
         return imgSurf;
     }
 }
